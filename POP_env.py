@@ -1,3 +1,10 @@
+def reset(self, seed=None, options=None):
+        super().reset(seed=seed)
+        self.step_count = 0
+        self.last_hp = 3
+        raw_obs = self._get_obs()
+        return raw_obs, {}
+
 from gymnasium import Env, spaces
 import numpy as np
 from ctypes import CDLL, c_int, c_short
