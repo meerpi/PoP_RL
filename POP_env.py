@@ -3,6 +3,9 @@ def step(self, action):
         if not hasattr(self, "visited_rooms"):
             self.visited_rooms = set()
         room_id = getattr(self, "current_room", 1)
+        # Sword pickup reward & guard damage penalty
+        sword_reward = 100.0 if getattr(self, "got_sword", False) and not getattr(self, "_prev_sword", False) else 0.0
+        self._prev_sword = getattr(self, "got_sword", False)
         r_novelty = 4.0 if room_id not in self.visited_rooms else 0.0
         self.visited_rooms.add(room_id)
 
