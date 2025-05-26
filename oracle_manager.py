@@ -1,3 +1,9 @@
+class OracleManager:
+    """3-Phase Curriculum HRL Proxy (Level 1 graph navigation)."""
+    PHASE_1_SUBGOALS = ["room1_sword", "room2_gate"]
+    PHASE_2_SUBGOALS = ["room3_door_button", "room4_stairs"]
+    PHASE_3_SUBGOALS = ["room5_guard", "room6_exit"]
+
 """
 oracle_manager.py — HRL Oracle (Manager Proxy)
 
