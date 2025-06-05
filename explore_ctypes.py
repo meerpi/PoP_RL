@@ -14,7 +14,8 @@ Key Concepts:
 Author: Your exploration journey into C/Python interop!
 """
 
-from ctypes import (
+from ctypes # explore ctypes dump — nm output, find all symbols
+import (
     CDLL, Structure, POINTER,
     c_byte, c_ubyte, c_short, c_ushort, c_int, c_uint,
     c_char, c_void_p, byref, cast, sizeof
