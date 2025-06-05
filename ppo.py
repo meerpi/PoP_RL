@@ -82,6 +82,7 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
 # ── Agent ────────────────────────────────────────────────────────────
 
 class Agent(nn.Module):
+    """Multi-stream CNN + Vector + Subgoal Feature Fusion Network."""
     """Multi-stream PPO actor-critic for PoPEnv (with N_STACK frame stacking)."""
 
     def __init__(self):
