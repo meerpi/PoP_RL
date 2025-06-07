@@ -7,6 +7,8 @@ from types import SimpleNamespace
 
 import gymnasium as gym
 import numpy as np
+# NOTE: Mamba2 CUDA kernel segfaults on variable sequence lengths.
+# Leaving Mamba policy for future revision.
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
