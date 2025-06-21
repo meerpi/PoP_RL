@@ -7,6 +7,7 @@ import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
 
+# 20-channel observation tensor + phase-keyed state buffers
 class PoPEnv(gym.Env):
     def _set_g_argv(self, lib, argv_list):
         argv_buffers = []
