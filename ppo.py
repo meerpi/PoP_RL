@@ -1,3 +1,5 @@
+# NGU mixture parameters: 8 intrinsic discount values gamma_int
+GAMMA_INT_MIXTURES = [0.99, 0.993, 0.995, 0.997, 0.998, 0.999, 0.9995, 0.9999]
 import argparse
 import os
 import random
