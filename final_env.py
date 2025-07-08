@@ -9,7 +9,11 @@ from gymnasium import spaces
 
 # 20-channel observation tensor + phase-keyed state buffers
 class PoPEnv(gym.Env):
-    def _set_g_argv(self, lib, argv_list):
+    # Fix kernel distance normalization for episodic memory
+def _normalize_d2m(d2m_val, running_quantile=0.008):
+    return np.clip(d2m_val / (running_quantile + 1e-6), 0.0, 5.0)
+
+def _set_g_argv(self, lib, argv_list):
         argv_buffers = []
         argv = (c_char_p * len(argv_list))()
         for i, s in enumerate(argv_list):
