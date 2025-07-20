@@ -1,3 +1,4 @@
+# BC pretraining did not yield strong initialization gains; training interrupted.
 import gymnasium
 import os
 import sys
