@@ -27,6 +27,12 @@ GRAPH_SPACE = spaces.Dict(OrderedDict([
 ]))
 
 
+def classify_fall(drop_height: int) -> int:
+    """Classify drop height: 0 = safe, 1 = risky (hp loss), 2 = fatal."""
+    if drop_height <= 1: return 0
+    elif drop_height <= 2: return 1
+    return 2
+
 def _tile_is_open(tile, bg_val):
     """True if this tile position doesn't block a falling body.
     A gate (tile 4) is passable when its modifier >= 112 — that's the
