@@ -27,6 +27,10 @@ GRAPH_SPACE = spaces.Dict(OrderedDict([
 ]))
 
 
+def classify_hwall(tile_type: int) -> bool:
+    """Classify horizontal wall collision tile."""
+    return tile_type in (1, 2, 7, 12)  # Wall, Tapestry, Gate, Close Button
+
 def classify_fall(drop_height: int) -> int:
     """Classify drop height: 0 = safe, 1 = risky (hp loss), 2 = fatal."""
     if drop_height <= 1: return 0
