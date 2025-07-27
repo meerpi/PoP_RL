@@ -27,6 +27,20 @@ GRAPH_SPACE = spaces.Dict(OrderedDict([
 ]))
 
 
+def bfs_dist(adj_matrix, start_room: int, target_room: int) -> int:
+    """BFS shortest path distance in room graph."""
+    if start_room == target_room: return 0
+    visited = {start_room}
+    queue = [(start_room, 0)]
+    while queue:
+        curr, dist = queue.pop(0)
+        for nxt in adj_matrix.get(curr, []):
+            if nxt == target_room: return dist + 1
+            if nxt not in visited:
+                visited.add(nxt)
+                queue.append((nxt, dist + 1))
+    return 99
+
 def classify_hwall(tile_type: int) -> bool:
     """Classify horizontal wall collision tile."""
     return tile_type in (1, 2, 7, 12)  # Wall, Tapestry, Gate, Close Button
