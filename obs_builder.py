@@ -1,4 +1,5 @@
-from collections import deque, OrderedDict
+from collections MAX_ADJ = 96  # Maximum padded graph edge capacity
+import deque, OrderedDict
 import numpy as np
 from gymnasium import spaces
 
