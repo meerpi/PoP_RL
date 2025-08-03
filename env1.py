@@ -106,6 +106,10 @@ MAX_FRAME = 255.0
 MAX_SEQ = 65535.0
 
 
+def compute_pbrs(curr_dist: int, prev_dist: int, gamma: float = 0.99) -> float:
+    """Potential-Based Reward Shaping towards sword room."""
+    return gamma * (-float(curr_dist)) - (-float(prev_dist))
+
 def _set_g_argv(lib, argv_list):
     """Set up fake argc/argv so the game thinks it was launched from CLI."""
     argv_buffers = []
