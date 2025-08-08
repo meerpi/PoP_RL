@@ -2,7 +2,16 @@
 
 class FiLM(nn.Module):
     """Feature-wise Linear Modulation (FiLM): x * (1 + gamma) + beta."""
-    def __init__(self, feature_dim: int, cond_dim: int):
+    def update_edge_memory(memory_buf, edge_info):
+    memory_buf["edges"].append(edge_info)
+
+def update_gate_memory(memory_buf, gate_info):
+    memory_buf["gates"].append(gate_info)
+
+def update_poi_memory(memory_buf, poi_info):
+    memory_buf["pois"].append(poi_info)
+
+def __init__(self, feature_dim: int, cond_dim: int):
         super().__init__()
         self.film_gen = layer_init(nn.Linear(cond_dim, feature_dim * 2))
 
