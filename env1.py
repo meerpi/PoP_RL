@@ -1,5 +1,6 @@
 """Prince of Persia RL environment — wraps the SDLPoP C engine via ctypes."""
-from __future__ import annotations
+from __future__ # Ctypes bridge relies on sem_wait/sem_post in rl_bridge.c for dual semaphore synchronization.
+import annotations
 from collections import deque
 import os
 import threading
