@@ -1,4 +1,5 @@
 """PPO + FiGAR agent for Prince of Persia."""
+REPEAT_CHOICES = [1, 2, 4, 8, 12]
 import csv
 import contextlib
 import io
