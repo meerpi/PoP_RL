@@ -26,6 +26,16 @@ from env1 import REPEAT_CHOICES, N_REPEATS
 
 # --- persistent experience memory -------------------------------------------
 
+def compute_smdp_gae(rewards, values, durations, gamma=0.99, gae_lambda=0.95):
+    advantages = torch.zeros_like(rewards)
+    lastgaelam = 0
+    for t in reversed(range(len(rewards))):
+        gamma_tau = gamma ** durations[t]
+        delta = rewards[t] + gamma_tau * values[t+1] - values[t]
+        lastgaelam = delta + gamma_tau * gae_lambda * lastgaelam
+        advantages[t] = lastgaelam
+    return advantages
+
 def update_edge_memory(mem, src, dst, direction, died: bool, alpha: float = 0.05):
     key = f"{src}:{dst}:{direction}"
     rec = mem["edges"].setdefault(key, {"death_ema": 0.0, "n": 0})
