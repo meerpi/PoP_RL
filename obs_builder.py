@@ -1,5 +1,4 @@
-from collections MAX_ADJ = 96  # Maximum padded graph edge capacity
-import deque, OrderedDict
+from collections import deque, OrderedDict
 import numpy as np
 from gymnasium import spaces
 
@@ -18,70 +17,51 @@ _TRIGGER_SPACE = spaces.Dict(OrderedDict([
 ]))
 
 GRAPH_SPACE = spaces.Dict(OrderedDict([
-    ("edge_src",   spaces.Box(0, 23,   shape=(MAX_ADJ,), dtype=np.int64)),
-    ("edge_dst",   spaces.Box(0, 23,   shape=(MAX_ADJ,), dtype=np.int64)),
-    ("edge_fatal", spaces.Box(0, 1,    shape=(MAX_ADJ,), dtype=np.uint8)),
-    ("edge_risky", spaces.Box(0, 1,    shape=(MAX_ADJ,), dtype=np.uint8)),
-    ("edge_trav",  spaces.Box(0, 1,    shape=(MAX_ADJ,), dtype=np.uint8)),
-    ("edge_mask",  spaces.Box(0, 1,    shape=(MAX_ADJ,), dtype=np.uint8)),
-    ("subgoal_hops", spaces.Box(0, 9999, shape=(), dtype=np.int64)),
+    ("edge_src",         spaces.Box(0, 23,   shape=(MAX_ADJ,), dtype=np.int64)),
+    ("edge_dst",         spaces.Box(0, 23,   shape=(MAX_ADJ,), dtype=np.int64)),
+    ("edge_fatal",       spaces.Box(0, 1,    shape=(MAX_ADJ,), dtype=np.uint8)),
+    ("edge_risky",       spaces.Box(0, 1,    shape=(MAX_ADJ,), dtype=np.uint8)),
+    ("edge_trav",        spaces.Box(0, 1,    shape=(MAX_ADJ,), dtype=np.uint8)),
+    ("edge_mask",        spaces.Box(0, 1,    shape=(MAX_ADJ,), dtype=np.uint8)),
+    ("edge_is_gate",     spaces.Box(0, 1,    shape=(MAX_ADJ,), dtype=np.uint8)),
+    ("edge_switch_room", spaces.Box(0, 24,   shape=(MAX_ADJ,), dtype=np.uint8)),
+    ("subgoal_hops",     spaces.Box(0, 15, shape=(), dtype=np.int64)),
 ]))
 
 
-def bfs_dist(adj_matrix, start_room: int, target_room: int) -> int:
-    """BFS shortest path distance in room graph."""
-    if start_room == target_room: return 0
-    visited = {start_room}
-    queue = [(start_room, 0)]
-    while queue:
-        curr, dist = queue.pop(0)
-        for nxt in adj_matrix.get(curr, []):
-            if nxt == target_room: return dist + 1
-            if nxt not in visited:
-                visited.add(nxt)
-                queue.append((nxt, dist + 1))
-    return 99
+def _tile_is_fall_open(tile, bg_val):
+    """True if a body can fall vertically through this tile position (empty air or gate)."""
+    return tile in (0, 4)
 
-def classify_hwall(tile_type: int) -> bool:
-    """Classify horizontal wall collision tile."""
-    return tile_type in (1, 2, 7, 12)  # Wall, Tapestry, Gate, Close Button
 
-def classify_fall(drop_height: int) -> int:
-    """Classify drop height: 0 = safe, 1 = risky (hp loss), 2 = fatal."""
-    if drop_height <= 1: return 0
-    elif drop_height <= 2: return 1
-    return 2
+def _tile_is_hwall_open(tile, bg_val):
+    """True if a character can pass horizontally through this tile position (anything except solid walls)."""
+    return tile not in (20, 21, 23, 24, 9)
+
 
 def _tile_is_open(tile, bg_val):
-    """True if this tile position doesn't block a falling body.
-    A gate (tile 4) is passable when its modifier >= 112 — that's the
-    engine's own character-traversal check (seg003.c:746).
-    """
-    if tile == 0:
-        return True
-    if tile == 4:
-        return bg_val >= 112
-    return False
+    """Backwards compatible alias for horizontal tile openness."""
+    return _tile_is_hwall_open(tile, bg_val)
 
 
 def classify_fall(src, dst, lv, fg, bg):
     """Check if src->dst is a downward transition with a fatal or risky drop.
     The fall starts at src's bottom row (row 2). We find which columns are
     open there (empty or passable gate), then trace through dst (and further
-    down-links) counting contiguous open rows. >=3 = fatal, 2 = risky.
+    down-links) counting contiguous open rows. >=4 = fatal, 3 = risky.
     bg must be a flat uint8/int array parallel to fg (0-indexed, same shape).
     """
     # only down-links can be falls
     if lv.roomlinks[src].down != dst + 1:
-        return 0, 0
+        return 0, 0, 0
     # which columns are open at src's bottom row?
     src_base = src * 30
     empty_cols = [
         c for c in range(10)
-        if _tile_is_open(fg[src_base + 20 + c] & 0x1F, int(bg[src_base + 20 + c]))
+        if _tile_is_fall_open(fg[src_base + 20 + c] & 0x1F, int(bg[src_base + 20 + c]))
     ]
     if not empty_cols:
-        return 0, 0
+        return 0, 0, 1
 
     max_rows = 1
     for c in empty_cols:
@@ -91,7 +71,7 @@ def classify_fall(src, dst, lv, fg, bg):
             blocked = False
             for row_idx in range(3):
                 pos = cur * 30 + row_idx * 10 + c
-                if not _tile_is_open(fg[pos] & 0x1F, int(bg[pos])):
+                if not _tile_is_fall_open(fg[pos] & 0x1F, int(bg[pos])):
                     blocked = True
                     break
                 rows += 1
@@ -104,11 +84,37 @@ def classify_fall(src, dst, lv, fg, bg):
         if rows > max_rows:
             max_rows = rows
 
-    if max_rows >= 3:
-        return 1, 0
-    if max_rows == 2:
-        return 0, 1
-    return 0, 0
+    if max_rows >= 4:
+        return 1, 0, 0
+    if max_rows == 3:
+        return 0, 1, 0
+    return 0, 0, 0
+
+
+_OPEN_TILE_TYPES = frozenset(range(20))  # tiles 0-19 are not solid walls
+
+def classify_hwall(src, dst, lv, fg, bg):
+    """Return 1 if a left/right transition is blocked by solid wall columns.
+    Checks the boundary column on each side (col 9 of src for right-links,
+    col 0 of src for left-links, and the matching column of dst). If either
+    side has no open tile across all 3 rows, the passage is impassable.
+    """
+    lnk = lv.roomlinks[src]
+    if lnk.right == dst + 1:
+        src_col, dst_col = 9, 0
+    elif lnk.left == dst + 1:
+        src_col, dst_col = 0, 9
+    else:
+        return 0  # not a horizontal link
+    def _col_open(room, col):
+        for row in range(3):
+            pos = room * 30 + row * 10 + col
+            if _tile_is_hwall_open(fg[pos] & 0x1F, int(bg[pos])):
+                return True
+        return False
+    if not _col_open(src, src_col) or not _col_open(dst, dst_col):
+        return 1
+    return 0
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -199,10 +205,31 @@ def _build_level1_static(lv):
     bg_rev = {}  # pos -> [edge_idx, ...]
 
     fg_cur = np.frombuffer(lv.fg, dtype=np.uint8)  # level initial fg
+    edge_is_gate_raw = np.zeros(len(adj_pairs), dtype=np.uint8)
+    edge_switch_room_raw = np.full(len(adj_pairs), 24, dtype=np.uint8)
 
     for e_idx, (src, dst) in enumerate(adj_pairs):
+        lnk = lv.roomlinks[src]
+        if lnk.right == dst + 1:
+            src_col, dst_col = 9, 0
+        elif lnk.left == dst + 1:
+            src_col, dst_col = 0, 9
+        else:
+            src_col, dst_col = None, None
+
+        if src_col is not None:
+            for row_idx in range(3):
+                for r, c in [(src, src_col), (dst, dst_col)]:
+                    pos = r * 30 + row_idx * 10 + c
+                    tile = fg_cur[pos] & 0x1F
+                    if tile == 4:
+                        edge_is_gate_raw[e_idx] = 1
+                        bg_rev.setdefault(pos, []).append(e_idx)
+                    else:
+                        fg_rev.setdefault(pos, []).append(e_idx)
+
         # Only down-links can be falls
-        if lv.roomlinks[src].down != dst + 1:
+        if lnk.down != dst + 1:
             continue
         src_base = src * 30
         # src bottom row positions — any that are open (or gate) contribute
@@ -210,6 +237,7 @@ def _build_level1_static(lv):
             pos = src_base + 20 + c
             tile = fg_cur[pos] & 0x1F
             if tile == 4:
+                edge_is_gate_raw[e_idx] = 1
                 bg_rev.setdefault(pos, []).append(e_idx)
             elif tile == 0:
                 fg_rev.setdefault(pos, []).append(e_idx)
@@ -227,6 +255,7 @@ def _build_level1_static(lv):
                     pos = cur * 30 + row_idx * 10 + c
                     tile = fg_cur[pos] & 0x1F
                     if tile == 4:
+                        edge_is_gate_raw[e_idx] = 1
                         bg_rev.setdefault(pos, []).append(e_idx)
                     else:
                         fg_rev.setdefault(pos, []).append(e_idx)
@@ -237,15 +266,25 @@ def _build_level1_static(lv):
     fg_reverse_index = {k: list(dict.fromkeys(v)) for k, v in fg_rev.items()}
     bg_reverse_index = {k: list(dict.fromkeys(v)) for k, v in bg_rev.items()}
 
+    # Match trigger_open to gate positions in bg_rev
+    for switch_room, gate_room, switch_abs_pos, gate_tile_idx, timer, chain_pos in open_edges:
+        gate_abs_pos = int(gate_room) * 30 + int(gate_tile_idx)
+        if gate_abs_pos in bg_rev:
+            for e_idx in bg_rev[gate_abs_pos]:
+                if edge_switch_room_raw[e_idx] == 24:
+                    edge_switch_room_raw[e_idx] = int(switch_room)
+
     class _Static:
         pass
     s = _Static()
-    s.room_nodes       = room_nodes
-    s.trigger_open     = trigger_open
-    s.trigger_close    = trigger_close
-    s.adj_pairs        = adj_pairs          # list of (src, dst)
-    s.fg_reverse_index = fg_reverse_index
-    s.bg_reverse_index = bg_reverse_index
+    s.room_nodes        = room_nodes
+    s.trigger_open      = trigger_open
+    s.trigger_close     = trigger_close
+    s.adj_pairs         = adj_pairs          # list of (src, dst)
+    s.fg_reverse_index  = fg_reverse_index
+    s.bg_reverse_index  = bg_reverse_index
+    s.edge_is_gate      = _pad(edge_is_gate_raw, MAX_ADJ, fill=0)
+    s.edge_switch_room  = _pad(edge_switch_room_raw, MAX_ADJ, fill=24)
     return s
 
 
@@ -357,10 +396,12 @@ class ObsBuilder:
 
         # ── Tier 1: pull from process singleton ──────────────────────────────
         self.static = get_level1_static(lv)
-        self.room_nodes     = self.static.room_nodes
-        self.trigger_open   = self.static.trigger_open
-        self.trigger_close  = self.static.trigger_close
-        adj_pairs           = self.static.adj_pairs  # list of (src, dst)
+        self.room_nodes       = self.static.room_nodes
+        self.trigger_open     = self.static.trigger_open
+        self.trigger_close    = self.static.trigger_close
+        adj_pairs             = self.static.adj_pairs  # list of (src, dst)
+        self.edge_is_gate     = self.static.edge_is_gate
+        self.edge_switch_room = self.static.edge_switch_room
 
         # ── Tier 2: snapshot fg/bg for delta detection ────────────────────────
         self._cached_fg = fg.copy()
@@ -378,6 +419,7 @@ class ObsBuilder:
         adj_is_up = []
         adj_fatal = []
         adj_risky = []
+        adj_solid = []
         raw_src   = np.empty(n, dtype=np.int64)
         raw_dst   = np.empty(n, dtype=np.int64)
         for i, (src, dst) in enumerate(adj_pairs):
@@ -386,12 +428,16 @@ class ObsBuilder:
             lnk = lv.roomlinks[src]
             is_up = int(lnk.up == dst + 1 and lnk.down != dst + 1)
             adj_is_up.append(is_up)
-            f, ri = classify_fall(src, dst, lv, fg, bg)
+            f, ri, s = classify_fall(src, dst, lv, fg, bg)
+            if not f and not ri and not s:
+                s = classify_hwall(src, dst, lv, fg, bg)
             adj_fatal.append(f)
             adj_risky.append(ri)
+            adj_solid.append(s)
 
         raw_fatal = np.array(adj_fatal, dtype=np.uint8)
         raw_risky = np.array(adj_risky, dtype=np.uint8)
+        raw_solid = np.array(adj_solid, dtype=np.uint8)
 
         # Pad all edge arrays to MAX_ADJ; real edges are in slots [0, n)
         self.n_edges  = n
@@ -402,15 +448,18 @@ class ObsBuilder:
         self.edge_dst   = _pad(raw_dst,   MAX_ADJ)
         self.edge_fatal = _pad(raw_fatal, MAX_ADJ)
         self.edge_risky = _pad(raw_risky, MAX_ADJ)
+        self.edge_solid = _pad(raw_solid, MAX_ADJ)
+        self.edge_risky = _pad(raw_risky, MAX_ADJ)
+        self.edge_solid = _pad(raw_solid, MAX_ADJ)
         self.edge_trav  = np.zeros(MAX_ADJ, dtype=np.uint8)
         self.edge_irr   = np.zeros(MAX_ADJ, dtype=np.int64)
-        self.edge_hop   = np.full(MAX_ADJ, 9999, dtype=np.int64)
+        self.edge_hop   = np.full(MAX_ADJ, 15, dtype=np.int64)
 
         # Run traversability + BFS pass once at reset
         self._run_bfs_pass(adj_is_up)
 
         self.subgoal      = -1
-        self.subgoal_hops = 9999
+        self.subgoal_hops = 15
 
     def _run_bfs_pass(self, adj_is_up=None):
         """Recompute traversability, irr, hop for all edges from current fatal/risky.
@@ -430,27 +479,25 @@ class ObsBuilder:
 
         raw_fatal = self.edge_fatal[:n]
         raw_risky = self.edge_risky[:n]
+        raw_solid = self.edge_solid[:n]
         raw_src   = self.edge_src[:n]
         raw_dst   = self.edge_dst[:n]
 
         # traversable
         safe_down = set()
         for i in range(n):
-            if adj_is_up[i] == 0 and not raw_fatal[i] and not raw_risky[i]:
+            if adj_is_up[i] == 0 and not raw_fatal[i] and not raw_risky[i] and not raw_solid[i]:
                 safe_down.add((int(raw_src[i]), int(raw_dst[i])))
 
         trav = np.zeros(n, dtype=np.uint8)
         for i in range(n):
             if adj_is_up[i] == 0:
-                trav[i] = 1
+                if raw_solid[i]:
+                    trav[i] = 0
+                else:
+                    trav[i] = 1
             elif (int(raw_dst[i]), int(raw_src[i])) in safe_down:
                 trav[i] = 1
-
-        # Room 9 (0-indexed 8) exception: edges into Room 9 are non-traversable until sword is obtained
-        if not self.have_sword:
-            for i in range(n):
-                if raw_dst[i] == 8:
-                    trav[i] = 0
 
         self.edge_trav[:n] = trav
         self.edge_trav[n:] = 0
@@ -462,17 +509,17 @@ class ObsBuilder:
                 safe.setdefault(int(raw_src[i]), []).append(int(raw_dst[i]))
 
         irr = np.zeros(n, dtype=np.uint8)
-        hop = np.full(n, 9999, dtype=np.int64)
+        hop = np.full(n, 15, dtype=np.int64)
         for i in range(n):
             d = bfs_dist(int(raw_dst[i]), int(raw_src[i]), safe)
             if d < 0:
                 irr[i] = 1
             else:
-                hop[i] = d
+                hop[i] = min(d, 15)
         self.edge_irr[:n] = irr
         self.edge_irr[n:] = 0
         self.edge_hop[:n] = hop
-        self.edge_hop[n:] = 9999
+        self.edge_hop[n:] = 15
 
         # Invalidate cached subgoal so next map_graph() call reruns BFS
         self.subgoal = -2  # sentinel that != any valid room
@@ -487,7 +534,7 @@ class ObsBuilder:
         self.subgoal = subgoal_room
         self._subgoal_kid_room = kid_room
         if subgoal_room < 0:
-            self.subgoal_hops = 9999
+            self.subgoal_hops = 15
             return
         n = self.n_edges
         safe = {}
@@ -495,7 +542,7 @@ class ObsBuilder:
             if self.edge_trav[i] and not self.edge_fatal[i]:
                 safe.setdefault(int(self.edge_src[i]), []).append(int(self.edge_dst[i]))
         d = bfs_dist(kid_room - 1, subgoal_room, safe)
-        self.subgoal_hops = d if d >= 0 else 9999
+        self.subgoal_hops = min(d, 15) if d >= 0 else 15
 
     def map_graph(self, subgoal_room=-1):
         """Returns the current room graph state. Flips visited for kid's room.
@@ -523,9 +570,10 @@ class ObsBuilder:
             for e in edges_to_redo:
                 src = int(self.edge_src[e])
                 dst = int(self.edge_dst[e])
-                f, ri = classify_fall(src, dst, lv, fg, bg)
+                f, ri, s = classify_fall(src, dst, lv, fg, bg)
                 self.edge_fatal[e] = f
                 self.edge_risky[e] = ri
+                self.edge_solid[e] = s
 
             if edges_to_redo or sword_changed:
                 self._run_bfs_pass()
@@ -555,18 +603,20 @@ class ObsBuilder:
         self._refresh_subgoal(subgoal_room)
 
         return {
-            "edge_src":      self.edge_src,
-            "edge_dst":      self.edge_dst,
-            "edge_fatal":    self.edge_fatal,
-            "edge_risky":    self.edge_risky,
-            "edge_trav":     self.edge_trav,
-            "edge_mask":     self.edge_mask,
-            "subgoal_hops": np.int64(self.subgoal_hops),
+            "edge_src":         self.edge_src,
+            "edge_dst":         self.edge_dst,
+            "edge_fatal":       self.edge_fatal,
+            "edge_risky":       self.edge_risky,
+            "edge_trav":        self.edge_trav,
+            "edge_mask":        self.edge_mask,
+            "edge_is_gate":     self.edge_is_gate,
+            "edge_switch_room": self.edge_switch_room,
+            "subgoal_hops":     np.int64(self.subgoal_hops),
         }
 
     def build_graph_obs(self, subgoal_room=-1):
-        """Stack the 6 edge arrays into a (6, MAX_ADJ) uint8 observation array."""
+        """Stack the 8 edge arrays into an (8, MAX_ADJ) uint8 observation array."""
         g = self.map_graph(subgoal_room=subgoal_room)
         return np.stack([g["edge_src"], g["edge_dst"], g["edge_fatal"], g["edge_risky"],
-                         g["edge_trav"], g["edge_mask"]], axis=0).astype(np.uint8)
+                         g["edge_trav"], g["edge_mask"], g["edge_is_gate"], g["edge_switch_room"]], axis=0).astype(np.uint8)
 
