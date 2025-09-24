@@ -492,6 +492,17 @@ class MemoryEncoder(nn.Module):
         return self.proj(cat_emb)
 
 
+
+class FiLM(nn.Module):
+    """Feature-wise Linear Modulation (FiLM): x * (1 + gamma) + beta."""
+    def __init__(self, feature_dim: int, cond_dim: int):
+        super().__init__()
+        self.film_gen = layer_init(nn.Linear(cond_dim, feature_dim * 2))
+
+    def forward(self, x: torch.Tensor, cond: torch.Tensor) -> torch.Tensor:
+        gamma, beta = self.film_gen(cond).chunk(2, dim=-1)
+        return x * (1.0 + gamma) + beta
+
 class Agent(nn.Module):
     """CNN-on-grid + MLP-on-state actor-critic with FiLM conditioning and FiGAR repeat head."""
 
