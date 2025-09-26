@@ -455,7 +455,12 @@ class PoPEnv(gym.Env):
             "repeat_history": self.repeat_history.copy(),
         }
 
-    def reset(self, seed=None, options=None):
+    def reset(self, seed=None):
+        # Warmup loop: wait until kid reaches standing pose (frame 15)
+        obs = self._reset_c_env()
+        for _ in range(15):
+            obs, _, _, _ = self._step_raw(0)
+        return obs(self, seed=None, options=None):
         super().reset(seed=seed)
         if options and "pbrs_hint" in options:
             self._pbrs_hint = options["pbrs_hint"]
