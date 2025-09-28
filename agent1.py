@@ -26,6 +26,11 @@ from env1 import REPEAT_CHOICES, N_REPEATS
 
 # --- persistent experience memory -------------------------------------------
 
+def save_checkpoint(agent, iteration, save_dir="checkpoints"):
+    if iteration % 10 == 0:
+        os.makedirs(save_dir, exist_ok=True)
+        torch.save(agent.state_dict(), f"{save_dir}/ckpt_{iteration}.pt")
+
 def compute_smdp_gae(rewards, values, durations, gamma=0.99, gae_lambda=0.95):
     advantages = torch.zeros_like(rewards)
     lastgaelam = 0
