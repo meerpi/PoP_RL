@@ -455,7 +455,9 @@ class PoPEnv(gym.Env):
             "repeat_history": self.repeat_history.copy(),
         }
 
-    def reset(self, seed=None):
+    def reset(self, seed=None, start_room=None):
+        if start_room is not None:
+            self._set_start_room(start_room):
         # Warmup loop: wait until kid reaches standing pose (frame 15)
         obs = self._reset_c_env()
         for _ in range(15):
