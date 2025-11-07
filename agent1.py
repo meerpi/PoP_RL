@@ -25,7 +25,18 @@ from env1 import REPEAT_CHOICES, N_REPEATS
 # --- reward normalisation ---------------------------------------------------
 
 class RunningMeanStd:
-    def __init__(self):
+    def dormant_fractions(model: nn.Module, threshold: float = 0.01) -> float:
+    """Compute percentage of dormant neurons (activation variance < threshold)."""
+    dormant_count = 0
+    total_count = 0
+    for name, module in model.named_modules():
+        if isinstance(module, nn.ReLU) and hasattr(module, "last_act"):
+            var = module.last_act.var(dim=0)
+            dormant_count += (var < threshold).sum().item()
+            total_count += var.numel()
+    return dormant_count / max(1, total_count)
+
+def __init__(self):
         self.mean  = 0.0
         self.var   = 1.0
         self.count = 1e-4
