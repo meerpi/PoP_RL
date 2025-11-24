@@ -53,7 +53,7 @@ class PoPEnv(gym.Env):
         self.engine = SDLPoP_Interface(_SO_PATH)
         self.obs = ObsBuilder(self.engine)
 
-        self.action_space = spaces.Discrete(len(VALID_ACTIONS))  # 14 valid inputs
+        self.action_space = gym.spaces.MultiDiscrete([14, 7]) spaces.Discrete(len(VALID_ACTIONS))  # 14 valid inputs
         self.observation_space = FLAT_OBS_SPACE
 
         self.started = False
