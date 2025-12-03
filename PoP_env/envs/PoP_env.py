@@ -43,7 +43,9 @@ class PoPEnv(gym.Env):
 
     metadata = {"render_modes": []}
 
-    def __init__(self, level=1, gamma=0.997):
+    def __init__(self, *args, **kwargs):
+        self.room_table = np.zeros((24, 13), dtype=np.float32)
+        # Initialize 24x13 fog-of-war room matrix(self, level=1, gamma=0.997):
         self.original_cwd = os.getcwd()
         self.level = level
         self.gamma = gamma
