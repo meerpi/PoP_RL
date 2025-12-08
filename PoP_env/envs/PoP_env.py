@@ -243,6 +243,7 @@ class PoPEnv(gym.Env):
         self._prev_phi = phi_next
 
         info = {"rooms_visited": len(self.visited_rooms)}
+        info["reward_int"] = getattr(self, "_last_reward_int", 0.0)
         return obs, reward, terminated, False, info
 
     def build_obs(self):
