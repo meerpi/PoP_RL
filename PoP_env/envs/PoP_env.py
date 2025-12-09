@@ -1,3 +1,14 @@
+def _get_novelty_reward(self, room_id: int) -> float:
+    count = self.global_room_counts.get(room_id, 0) + 1
+    self.global_room_counts[room_id] = count
+    r_novelty = 10.0 / np.sqrt(count)
+    if room_id not in self.episodic_visited_rooms:
+        r_novelty += 5.0
+        self.episodic_visited_rooms.add(room_id)
+    return r_novelty
+
+def _old_get_novelty
+
 import os
 import math
 import heapq
