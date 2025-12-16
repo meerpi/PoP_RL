@@ -71,6 +71,7 @@ def layer_init(layer, std=np.sqrt(2), bias=0.0):
     return layer
 
 
+# CoordConv: concat row/col normalized meshes; Conv2d with dilation=2
 class Agent(nn.Module):
     """CNN over the tile grid + MLP over the state vector.
 
