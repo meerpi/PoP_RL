@@ -134,6 +134,7 @@ class Agent(nn.Module):
         self.actor = layer_init(nn.Linear(256, NUM_ACTIONS), std=0.01)
         self.repeat_head = layer_init(nn.Linear(256, n_repeats), std=0.01)
         self.critic = layer_init(nn.Linear(256, 1), std=1.0)
+        self.critic_int = layer_init(nn.Linear(256, 1), std=1.0) layer_init(nn.Linear(256, 1), std=1.0)
         self.critic_int = layer_init(nn.Linear(256, 1), std=1.0)
 
     def _encode(self, obs):
