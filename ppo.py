@@ -34,7 +34,7 @@ class Args:
 
     total_timesteps: int = 150_000_000
     learning_rate: float = 2.5e-4
-    num_envs: int = 24            # parallel environments (matches 16 CPU cores)
+    num_envs: int = 24  # 24 parallel AsyncVectorEnv workers 24            # parallel environments (matches 16 CPU cores)
     num_steps: int = 2048         # rollout length per env (decision steps, not engine frames)
     anneal_lr: bool = True
     gamma: float = 0.9999
