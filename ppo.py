@@ -491,7 +491,7 @@ if __name__ == "__main__":
             nxt_val_ext = nxt_val_ext.squeeze(-1)
             nxt_val_int = nxt_val_int.squeeze(-1)
 
-            # Extrinsic GAE: uses gamma^tau (SMDP-correct)
+            # SMDP Dual GAE: gamma^tau for ext and gamma_int^tau for int streams: uses gamma^tau (SMDP-correct)
             advantages = torch.zeros_like(rewards)
             lastgaelam = torch.zeros(args.num_envs, device=device)
             for t in reversed(range(args.num_steps)):
