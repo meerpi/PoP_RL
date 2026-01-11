@@ -13,6 +13,29 @@ import gymnasium as gym
 from torch.distributions.categorical import Categorical
 from torch.utils.tensorboard import SummaryWriter
 
+
+class Welford:
+    """Online Welford algorithm for running mean and variance of intrinsic returns."""
+    def __init__(self):
+        self.n = 0
+        self.mean = 0.0
+        self.M2 = 0.0
+
+    def update(self, x: float):
+        self.n += 1
+        delta = x - self.mean
+        self.mean += delta / self.n
+        delta2 = x - self.mean
+        self.M2 += delta * delta2
+
+    @property
+    def var(self) -> float:
+        return self.M2 / self.n if self.n > 1 else 1.0
+
+    @property
+    def std(self) -> float:
+        return np.sqrt(self.var + 1e-8)
+
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "PoP_env"))
 from envs.PoP_env import PoPEnv
