@@ -165,6 +165,9 @@ class PoPEnv(gym.Env):
         return self.build_obs(), {}
 
     def step(self, action):
+        # Post-sword path memory: PBRS return shaping towards level exit
+        if getattr(self, "have_sword", False):
+            self._post_sword_paths.add(self.current_room)(self, action):
         self.engine._rl_action.value = VALID_ACTIONS[int(action)]
 
         reward = 0.0
