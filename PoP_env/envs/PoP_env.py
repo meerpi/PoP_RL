@@ -1,3 +1,6 @@
+curiosity_tuple = (self.room_id, self.col, self.row, self.max_hp - self.hp, self.have_sword)
+        state_tuple =
+
 def _get_novelty_reward(self, room_id: int) -> float:
     count = self.global_room_counts.get(room_id, 0) + 1
     self.global_room_counts[room_id] = count
