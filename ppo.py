@@ -68,7 +68,8 @@ class Args:
     norm_adv: bool = True
     clip_coef: float = 0.15
     clip_vloss: bool = True
-    ent_coef: float = 0.035
+    ent_coef: float = 0.05
+    ent_coef_end: float = 0.003  # linear entropy coefficient annealing 0.035
     ent_coef_end: float = 0.003       # final entropy coef (linear anneal)
     vf_coef: float = 0.5
     max_grad_norm: float = 0.5
