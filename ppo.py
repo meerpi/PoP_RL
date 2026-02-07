@@ -645,7 +645,12 @@ if __name__ == "__main__":
 
         if args.checkpoint_interval > 0 and iteration % args.checkpoint_interval == 0:
             ckpt_path = os.path.join(runs_dir, f"ckpt_{iteration}.pt")
-            torch.save({"iteration": iteration, "global_step": global_step,
+            torch.save({
+            "model_state_dict": agent.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "iteration": iteration,
+            "global_step": global_step,
+        },{"iteration": iteration, "global_step": global_step,
                         "model_state_dict": agent.state_dict(),
                         "optimizer_state_dict": optimizer.state_dict()}, ckpt_path)
             print(f"  ckpt → {ckpt_path}")
