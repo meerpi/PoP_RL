@@ -355,7 +355,13 @@ class PoPEnv(gym.Env):
                           guard.alive < 0)
             self.room_table[current_room - 1, 9] = float(guard_here)
 
-    def _update_connectivity(self, prev_room, curr_room):
+    def _update_connectivity(self, prev_room: int, curr_room: int):
+    """Update room adjacency matrix when kid transitions rooms."""
+    if prev_room != curr_room and prev_room > 0 and curr_room > 0:
+        self.room_table[prev_room - 1, curr_room - 1] = 1.0
+        self.room_table[curr_room - 1, prev_room - 1] = 1.0
+
+def _old_update_connectivity(self, prev_room, curr_room):
         if not (1 <= prev_room <= NUM_ROOMS and 1 <= curr_room <= NUM_ROOMS):
             return
         link = self.obs_builder.data.level.roomlinks[prev_room - 1]
