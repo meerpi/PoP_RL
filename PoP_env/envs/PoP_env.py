@@ -1,3 +1,9 @@
+# Guard combat rewards
+        if self.guard_present and self.kid_sword_drawn and not self._prev_sword_drawn:
+            reward += 20.0  # Reward drawing sword against active guard
+        if self._prev_guard_hp > 0 and self.guard_hp == 0:
+            reward += 300.0  # Guard defeat bonus
+
 """Prince of Persia Gymnasium environment.
 
 Includes:
