@@ -1,3 +1,8 @@
+if self.level_completed:
+            reward += 500.0
+            terminated = True
+        if terminated:
+
 # Guard combat rewards
         if self.guard_present and self.kid_sword_drawn and not self._prev_sword_drawn:
             reward += 20.0  # Reward drawing sword against active guard
