@@ -13,29 +13,6 @@ import gymnasium as gym
 from torch.distributions.categorical import Categorical
 from torch.utils.tensorboard import SummaryWriter
 
-
-class Welford:
-    """Online Welford algorithm for running mean and variance of intrinsic returns."""
-    def __init__(self):
-        self.n = 0
-        self.mean = 0.0
-        self.M2 = 0.0
-
-    def update(self, x: float):
-        self.n += 1
-        delta = x - self.mean
-        self.mean += delta / self.n
-        delta2 = x - self.mean
-        self.M2 += delta * delta2
-
-    @property
-    def var(self) -> float:
-        return self.M2 / self.n if self.n > 1 else 1.0
-
-    @property
-    def std(self) -> float:
-        return np.sqrt(self.var + 1e-8)
-
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "PoP_env"))
 from envs.PoP_env import PoPEnv
@@ -57,7 +34,7 @@ class Args:
 
     total_timesteps: int = 150_000_000
     learning_rate: float = 2.5e-4
-    num_envs: int = 24  # 24 parallel AsyncVectorEnv workers 24            # parallel environments (matches 16 CPU cores)
+    num_envs: int = 24            # parallel environments (matches 16 CPU cores)
     num_steps: int = 2048         # rollout length per env (decision steps, not engine frames)
     anneal_lr: bool = True
     gamma: float = 0.9999
@@ -68,8 +45,7 @@ class Args:
     norm_adv: bool = True
     clip_coef: float = 0.15
     clip_vloss: bool = True
-    ent_coef: float = 0.05
-    ent_coef_end: float = 0.003  # linear entropy coefficient annealing 0.035
+    ent_coef: float = 0.035
     ent_coef_end: float = 0.003       # final entropy coef (linear anneal)
     vf_coef: float = 0.5
     max_grad_norm: float = 0.5
@@ -95,7 +71,6 @@ def layer_init(layer, std=np.sqrt(2), bias=0.0):
     return layer
 
 
-# CoordConv: concat row/col normalized meshes; Conv2d with dilation=2
 class Agent(nn.Module):
     """CNN over the tile grid + MLP over the state vector.
 
@@ -158,7 +133,6 @@ class Agent(nn.Module):
         self.actor = layer_init(nn.Linear(256, NUM_ACTIONS), std=0.01)
         self.repeat_head = layer_init(nn.Linear(256, n_repeats), std=0.01)
         self.critic = layer_init(nn.Linear(256, 1), std=1.0)
-        self.critic_int = layer_init(nn.Linear(256, 1), std=1.0) layer_init(nn.Linear(256, 1), std=1.0)
         self.critic_int = layer_init(nn.Linear(256, 1), std=1.0)
 
     def _encode(self, obs):
@@ -515,7 +489,7 @@ if __name__ == "__main__":
             nxt_val_ext = nxt_val_ext.squeeze(-1)
             nxt_val_int = nxt_val_int.squeeze(-1)
 
-            # SMDP Dual GAE: gamma^tau for ext and gamma_int^tau for int streams: uses gamma^tau (SMDP-correct)
+            # Extrinsic GAE: uses gamma^tau (SMDP-correct)
             advantages = torch.zeros_like(rewards)
             lastgaelam = torch.zeros(args.num_envs, device=device)
             for t in reversed(range(args.num_steps)):
@@ -645,12 +619,7 @@ if __name__ == "__main__":
 
         if args.checkpoint_interval > 0 and iteration % args.checkpoint_interval == 0:
             ckpt_path = os.path.join(runs_dir, f"ckpt_{iteration}.pt")
-            torch.save({
-            "model_state_dict": agent.state_dict(),
-            "optimizer_state_dict": optimizer.state_dict(),
-            "iteration": iteration,
-            "global_step": global_step,
-        },{"iteration": iteration, "global_step": global_step,
+            torch.save({"iteration": iteration, "global_step": global_step,
                         "model_state_dict": agent.state_dict(),
                         "optimizer_state_dict": optimizer.state_dict()}, ckpt_path)
             print(f"  ckpt → {ckpt_path}")
