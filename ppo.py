@@ -476,6 +476,7 @@ if __name__ == "__main__":
             next_obs = obs_to_torch(raw_obs, device)
 
         # Rollout summary
+        # Print rollout summary per env
         print(f"\n[rollout] gs={global_step}")
         for i in range(args.num_envs):
             ev_str = ", ".join(ro_events[i])
