@@ -63,6 +63,9 @@ def _worker(
         if cmd == "step":
             action = payload
             obs, reward, terminated, truncated, info = env.step(action)
+            # Auto-reset: if done, reset and write new obs for next step
+            if terminated or truncated:
+                obs, reset_info = env.reset()
             write_obs(obs)
             result_pipe.send(("step_done", reward, terminated, truncated, info))
         elif cmd == "reset":
