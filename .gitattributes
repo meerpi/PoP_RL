@@ -1,0 +1,4 @@
+# SDLPoP is a vendored, patched third-party dependency (GPLv3).
+# Exclude it from GitHub Linguist language stats.
+PoP_env/SDLPoP/* linguist-vendored
+_back/PoP_env/SDLPoP/* linguist-vendored
