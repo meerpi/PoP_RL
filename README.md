@@ -1,97 +1,57 @@
-# Principia: Experiments in POP using PPO.
+## Pretrained Checkpoint
 
+The trained model checkpoint is available at `checkpoints/ckpt_final.pt` (iteration 3050).
 
-### Currently able to get the sword!
-https://github.com/user-attachments/assets/afb6e10f-2f52-48fe-a93f-be036d8e91a5
+To evaluate:
+```bash
+python eval.py --checkpoint_path checkpoints/ckpt_final.pt
+```
 
-
-
-## How was the environment created?
-There's this cool repo [SDLPoP](https://github.com/NagyD/SDLPoP), basically some guy just decided to disassemble and open source the OG Prince of Persia!
-
-To create this project, i trimmed the repo to only contain the `data` (assets of the game) and `src` (logic part of game) folders along with the `SDLPOP.ini` (configurations eg. turning off cutscenes) file
-
-Then using the `make shared` command the game was compiled on arch linux, btw 
-(note: you'll have to recompile the game in src/ folder if you want to run it on your machine; see the [SDLPoP Documentation](https://github.com/NagyD/SDLPoP#compiling))
-
-Thereafter, the `POP_Env.py` file was created. To wrap the game around a gymnasium environment, `ctypes` was used to access the global variables (things like hitpoints current level, raw pixel frame, etc).
+## Quickstart
 
 
 
-## the things the agent 'sees'
-The agent has access to the `84x84 grayscaled frames` and states like `current level`, `current hitpoints`, `max hitpoints`, `possession of sword`, `current room index` and `current guard hp`.
 
-The agent makes decisions with a frame skip of 4 (since 4 is the minimum number of frames any action takes)
+# PoP_RL: PPO Agent for Prince of Persia (SDLPoP)
+https://github.com/user-attachments/assets/596a974f-ff7c-42e0-8708-664a25bc2aba
 
-The agent can perform 5 actions: `Up`, `Down`, `Left`, `Right` along with one `Null` action.
-
+### Currently able to get the Fully level up to 2!
 
 
-## the rewards the agent receives
-| Action | Reward |
+## Engine & Environment Design
+The environment wraps [SDLPoP](https://github.com/NagyD/SDLPoP), an open-source C disassembly of the original 1989 Prince of Persia.
+
+- **Direct Memory Access**: `PoP_env/wrappers/build_obs.py` uses `ctypes` to read C engine pointers (`seg000.c`, `seg005.c`, `seg006.c`, `seg009.c`), pulling hitpoints, coordinates, room IDs, and tile matrices directly out of process memory.
+- **Decision-Frame Input Timing**: Instead of fixed frame-skipping, `is_decision_frame()` hooks into SDLPoP's internal `control()` dispatch loop. The agent is only queried on exact frames where the engine checks user input.
+- **FiGAR Action Space**: Action space is `MultiDiscrete([14, 7])` combining 14 discrete actions (`NONE`, movement, combat `SHIFT` grabs, diagonals, `INTERACT`) with 7 repeat choices (`[1, 2, 3, 4, 8, 13, 18]` frames) to handle multi-frame animations like ledge grabs and sword swings.
+
+
+## Observations & Neural Network Architecture
+`Agent` in `ppo.py` fuses multiple spatial and tabular inputs:
+
+- **CoordConv + Dilated Conv2D**: Processes the `12x5x12` room tile grid by appending normalized row/column spatial coordinates, followed by standard 3x3 conv and dilated 3x3 conv (dilation=2) to give filters a 5x5 receptive field without merging tile cells.
+- **Learned Embeddings & State Encoder**: Embeds current room ID (8D vector) and 5-step action/repeat history, combined with 29 normalized scalar features (velocities, HP, animation state) into a 128D state representation.
+- **Fog-of-War Room Matrix**: A `24x13` global memory table tracking per-room lifetime visits, guard locations, and discovered connectivity graph edges.
+- **Dual Value Heads**: Separate `critic` (extrinsic) and `critic_int` (intrinsic curiosity/novelty) heads for dual-stream PPO return estimation.
+
+
+## Reward Structure
+The environment splits signals into extrinsic environment progress and intrinsic exploration:
+
+### Extrinsic Rewards
+| Condition | Value |
 |---|---|
-| discovering new rooms | +4 |
-| picking up the sword | +7 |
-| dying | -10 |
-| health increase | +1 |
-| health decrease | -1 |
-| decreasing guard's hp | +2 |
-| killing guard | +3 |
-| every time step (makes it kill itself if it ever gets stuck) | -0.01 |
+| Level completion | +500.0 |
+| Guard kill | +300.0 |
+| Sword pickup | +100.0 |
+| Following memorized return path (post-sword) | +15.0 to +30.0 (progress-escalated) |
+| Drawing sword near guard | +15.0 |
+| Guard HP damage | +10.0 per HP |
+| Kid HP damage | -0.5 per HP |
+| Death | -10.0 (-5.0 post-sword) |
 
-
-
-## How to run it on your machine?
-
-#### Docker (recommended):
-
-Using the docker image is much simpler, available at: [Docker Hub](https://hub.docker.com/r/oceanthunder/principia)
-
-```bash
-docker pull oceanthunder/principia
-```
-
-```bash
-xhost +local:docker
-docker run --rm -it -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix --name principia --gpus all --ipc=host -p 6006:6006 oceanthunder/principia
-```
-
-after which run multippo.py to start the training [change the num_cpu param in multippo.py file to inc/dec the no. of environments in parallel]
-| Command | Mode |
-| :--- | :--- |
-| `python multippo.py 1` | **Single Window** (Only 1 GUI opens) |
-| `python multippo.py 2` | **All Windows** (GUI for every environment) |
-| `python multippo.py 3` | **Headless** (No windows, fastest) |
-
-**Example:**
-```bash
-python multippo.py 1
-```
-
-To access logs, open a new terminal and then:
-```bash
-docker exec -it principia /bin/bash
-```
-
-now, inside the container, type:
-```bash
-tensorboard --logdir logs --port 6006 --bind_all
-```
-
-Then, open up a browser and visit http://localhost:6006 to see tensorboard logs!
-
-#### Manual (if you are real serious about this):
-
-Recompile the game as mentioned above.
-
-Use python version 3.12.12 (might work on other python versions, haven't tested)
-
-pip install the requirements.txt file
-
-run the multippo.py file to start training 
-
-
-
-## Notes for meself
-nm -D ./SDLPoP/src/libSDLPoP.so [very useful command to find what methods are available in libSDLPop.so file, just pipe em up!]
-
+### Intrinsic Rewards
+| Signal | Formula / Condition |
+|---|---|
+| Room Novelty | `10.0 / sqrt(lifetime_visits) + 5.0 (episodic first-visit)` |
+| Curiosity | `+1.0` per unique `(room, col, row, hp_loss, sword_status)` tuple |
