@@ -1,5 +1,0 @@
-stable-baselines3>=2.1.0
-gymnasium>=0.29.1
-numpy
-torch
-opencv-python
