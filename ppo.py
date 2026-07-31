@@ -57,7 +57,7 @@ class Args:
     num_iterations: int = 0
 
     checkpoint_interval: int = 25   # save every N iterations (0 = off)
-    checkpoint_path: str = ""  # CLI --checkpoint_path override for loading weights       # path to load checkpoint from
+    checkpoint_path: str = ""       # path to load checkpoint from
     eval_on_checkpoint: bool = True # record an eval mp4 on each checkpoint
 
 
@@ -476,7 +476,6 @@ if __name__ == "__main__":
             next_obs = obs_to_torch(raw_obs, device)
 
         # Rollout summary
-        # Print rollout summary per env
         print(f"\n[rollout] gs={global_step}")
         for i in range(args.num_envs):
             ev_str = ", ".join(ro_events[i])

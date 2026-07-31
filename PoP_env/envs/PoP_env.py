@@ -1,14 +1,3 @@
-if self.level_completed:
-            reward += 500.0
-            terminated = True
-        if terminated:
-
-# Guard combat rewards
-        if self.guard_present and self.kid_sword_drawn and not self._prev_sword_drawn:
-            reward += 20.0  # Reward drawing sword against active guard
-        if self._prev_guard_hp > 0 and self.guard_hp == 0:
-            reward += 300.0  # Guard defeat bonus
-
 """Prince of Persia Gymnasium environment.
 
 Includes:
@@ -366,13 +355,7 @@ class PoPEnv(gym.Env):
                           guard.alive < 0)
             self.room_table[current_room - 1, 9] = float(guard_here)
 
-    def _update_connectivity(self, prev_room: int, curr_room: int):
-    """Update room adjacency matrix when kid transitions rooms."""
-    if prev_room != curr_room and prev_room > 0 and curr_room > 0:
-        self.room_table[prev_room - 1, curr_room - 1] = 1.0
-        self.room_table[curr_room - 1, prev_room - 1] = 1.0
-
-def _old_update_connectivity(self, prev_room, curr_room):
+    def _update_connectivity(self, prev_room, curr_room):
         if not (1 <= prev_room <= NUM_ROOMS and 1 <= curr_room <= NUM_ROOMS):
             return
         link = self.obs_builder.data.level.roomlinks[prev_room - 1]
