@@ -7,6 +7,15 @@ To evaluate:
 python eval.py --checkpoint_path checkpoints/ckpt_final.pt
 ```
 
+## Pretrained Checkpoint
+
+The trained model checkpoint is available at `checkpoints/ckpt_final.pt` (iteration 3050).
+
+To evaluate:
+```bash
+python eval.py --checkpoint_path checkpoints/ckpt_final.pt
+```
+
 ## Quickstart
 
 
