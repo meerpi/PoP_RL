@@ -1,0 +1,3 @@
+[submodule "PoP_env/SDLPoP"]
+	path = PoP_env/SDLPoP
+	url = git@github.com:meerpi/SDLPoP.git
